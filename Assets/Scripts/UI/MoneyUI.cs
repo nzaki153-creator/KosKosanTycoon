@@ -1,5 +1,5 @@
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 
 public class MoneyUI : MonoBehaviour
 {
@@ -7,21 +7,12 @@ public class MoneyUI : MonoBehaviour
 
     private void Start()
     {
-        UpdateMoney(MoneyManager.Instance.CurrentMoney);
-
-        MoneyManager.Instance.OnMoneyChanged += UpdateMoney;
+        MoneyManager.Instance.OnMoneyChanged += UpdateUI;
+        UpdateUI(MoneyManager.Instance.GetMoney());
     }
 
-    private void OnDestroy()
+    private void UpdateUI(long value)
     {
-        if (MoneyManager.Instance != null)
-        {
-            MoneyManager.Instance.OnMoneyChanged -= UpdateMoney;
-        }
-    }
-
-    private void UpdateMoney(long amount)
-    {
-        moneyText.text = "Rp " + amount.ToString();
+        moneyText.text = "Money: " + value.ToString();
     }
 }

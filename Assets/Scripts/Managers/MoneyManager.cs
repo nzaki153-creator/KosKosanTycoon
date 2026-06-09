@@ -1,5 +1,5 @@
-using UnityEngine;
 using System;
+using UnityEngine;
 
 public class MoneyManager : MonoBehaviour
 {
@@ -7,88 +7,42 @@ public class MoneyManager : MonoBehaviour
 
     public event Action<long> OnMoneyChanged;
 
-    private const string MONEY_KEY = "PlayerMoney";
-    private const long START_MONEY = 5000000;
-
-    private long currentMoney;
-
-    public long CurrentMoney => currentMoney;
+    [SerializeField] private long money = 0;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (Instance != null)
         {
             Destroy(gameObject);
             return;
         }
-
         Instance = this;
-
-        LoadMoney();
-
-        Debug.Log("Money Loaded: " + currentMoney);
     }
+
     public void AddMoney(long amount)
     {
-        if (amount <= 0) return;
-
-        currentMoney += amount;
-
-        SaveMoney();
-
-        OnMoneyChanged?.Invoke(currentMoney);
+        money += amount;
+        OnMoneyChanged?.Invoke(money);
     }
 
     public bool SpendMoney(long amount)
     {
-        if (amount <= 0) return false;
+        if (money < amount) return false;
 
-        if (currentMoney < amount)
-            return false;
-
-        currentMoney -= amount;
-
-        SaveMoney();
-
-        OnMoneyChanged?.Invoke(currentMoney);
-
+        money -= amount;
+        OnMoneyChanged?.Invoke(money);
         return true;
     }
 
-    private void SaveMoney()
+    public long GetMoney()
     {
-        PlayerPrefs.SetString(MONEY_KEY, currentMoney.ToString());
-        PlayerPrefs.Save();
+        return money;
     }
 
-    private void LoadMoney()
+    public void SetMoney(long value)
     {
-        string savedMoney =
-            PlayerPrefs.GetString(MONEY_KEY, START_MONEY.ToString());
-
-        if (long.TryParse(savedMoney, out long loadedMoney))
-        {
-            currentMoney = loadedMoney;
-        }
-        else
-        {
-            currentMoney = START_MONEY;
-        }
-    }
-    [ContextMenu("Reset Money")]
-    private void ResetMoney()
-    {
-        PlayerPrefs.DeleteKey(MONEY_KEY);
-    }
-    [ContextMenu("Add 1 Juta")]
-    private void DebugAddMoney()
-    {
-        AddMoney(1000000);
+        money = value;
+        OnMoneyChanged?.Invoke(money);
     }
 
-    [ContextMenu("Spend 500 Ribu")]
-    private void DebugSpendMoney()
-    {
-        SpendMoney(500000);
-    }
 }
