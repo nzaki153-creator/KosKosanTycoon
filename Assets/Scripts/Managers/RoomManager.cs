@@ -15,7 +15,8 @@ public class RoomManager : MonoBehaviour
 
     // runtime state
     private HashSet<string> unlockedRooms = new();
-
+    private HashSet<string> occupiedRooms = new();
+    private HashSet<string> pendingTenants = new();
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -30,6 +31,7 @@ public class RoomManager : MonoBehaviour
     private void Start()
     {
         LoadGame();
+        StartTenantTimers();
         Debug.Log("=== ROOM LIST ===");
 
         foreach (var room in rooms)
@@ -62,6 +64,7 @@ public class RoomManager : MonoBehaviour
     // =========================
     public void BuyRoom(string roomId)
     {
+        Debug.Log("BuyRoom dipanggil: " + roomId);
         if (unlockedRooms.Contains(roomId))
         {
             Debug.Log("Room sudah dibeli: " + roomId);
@@ -78,6 +81,8 @@ public class RoomManager : MonoBehaviour
 
         unlockedRooms.Add(roomId);
 
+        StartCoroutine(TenantMoveIn(roomId));
+
         Debug.Log("ROOM DIBELI: " + room.roomName);
     }
 
@@ -87,6 +92,7 @@ public class RoomManager : MonoBehaviour
 
         data.money = MoneyManager.Instance.GetMoney();
         data.unlockedRooms = new List<string>(unlockedRooms);
+        data.occupiedRooms = new List<string>(occupiedRooms);
 
         string json = JsonUtility.ToJson(data);
 
@@ -109,6 +115,9 @@ public class RoomManager : MonoBehaviour
         SaveData data = JsonUtility.FromJson<SaveData>(json);
 
         unlockedRooms = new HashSet<string>(data.unlockedRooms);
+        occupiedRooms = data.occupiedRooms != null
+    ? new HashSet<string>(data.occupiedRooms)
+    : new HashSet<string>();
 
         MoneyManager.Instance.SetMoney(data.money);
 
@@ -127,13 +136,30 @@ public class RoomManager : MonoBehaviour
         }
     }
 
+    private IEnumerator TenantMoveIn(string roomId)
+    {
+        if (pendingTenants.Contains(roomId))
+            yield break;
+
+        pendingTenants.Add(roomId);
+
+        yield return new WaitForSeconds(5f);
+
+        AddTenant(roomId);
+
+        pendingTenants.Remove(roomId);
+
+        SaveGame();
+
+        Debug.Log("Tenant otomatis masuk: " + roomId);
+    }
     private void GenerateIncome()
     {
         long totalIncome = 0;
 
         foreach (var room in rooms)
         {
-            if (unlockedRooms.Contains(room.roomId))
+            if (occupiedRooms.Contains(room.roomId))
             {
                 totalIncome += room.incomePerCycle;
             }
@@ -164,5 +190,56 @@ public class RoomManager : MonoBehaviour
     public bool IsRoomUnlocked(string roomId)
     {
         return unlockedRooms.Contains(roomId);
+    }
+
+    public bool HasTenant(string roomId)
+    {
+        return occupiedRooms.Contains(roomId);
+    }
+
+    public void AddTenant(string roomId)
+    {
+        Debug.Log("AddTenant dipanggil: " + roomId);
+        if (!unlockedRooms.Contains(roomId))
+        {
+            Debug.LogWarning("Room belum dibeli: " + roomId);
+            return;
+        }
+
+        if (occupiedRooms.Contains(roomId))
+        {
+            Debug.Log("Room sudah memiliki tenant: " + roomId);
+            return;
+        }
+
+        occupiedRooms.Add(roomId);
+
+        Debug.Log("Tenant masuk ke room: " + roomId);
+    }
+
+    private void StartTenantTimers()
+    {
+        foreach (string roomId in unlockedRooms)
+        {
+            if (!occupiedRooms.Contains(roomId))
+            {
+                StartCoroutine(TenantMoveIn(roomId));
+            }
+        }
+    }
+    public void RemoveTenant(string roomId)
+    {
+        occupiedRooms.Remove(roomId);
+
+        Debug.Log("Tenant keluar dari room: " + roomId);
+    }
+
+    [ContextMenu("DELETE SAVE")]
+    private void DeleteSave()
+    {
+        PlayerPrefs.DeleteKey(SAVE_KEY);
+        PlayerPrefs.Save();
+
+        Debug.Log("SAVE DIHAPUS");
     }
 }
