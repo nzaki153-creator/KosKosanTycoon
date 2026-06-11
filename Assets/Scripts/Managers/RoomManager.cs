@@ -17,6 +17,10 @@ public class RoomManager : MonoBehaviour
     private HashSet<string> unlockedRooms = new();
     private HashSet<string> occupiedRooms = new();
     private HashSet<string> pendingTenants = new();
+
+    private Dictionary<string, int> roomLevels = new();
+
+    private const int MAX_ROOM_LEVEL = 10;
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -81,6 +85,11 @@ public class RoomManager : MonoBehaviour
 
         unlockedRooms.Add(roomId);
 
+        if (!roomLevels.ContainsKey(roomId))
+        {
+            roomLevels.Add(roomId, 1);
+        }
+
         StartCoroutine(TenantMoveIn(roomId));
 
         Debug.Log("ROOM DIBELI: " + room.roomName);
@@ -93,6 +102,15 @@ public class RoomManager : MonoBehaviour
         data.money = MoneyManager.Instance.GetMoney();
         data.unlockedRooms = new List<string>(unlockedRooms);
         data.occupiedRooms = new List<string>(occupiedRooms);
+
+        data.roomLevelIds = new List<string>();
+        data.roomLevels = new List<int>();
+
+        foreach (var pair in roomLevels)
+        {
+            data.roomLevelIds.Add(pair.Key);
+            data.roomLevels.Add(pair.Value);
+        }
 
         string json = JsonUtility.ToJson(data);
 
@@ -121,7 +139,26 @@ public class RoomManager : MonoBehaviour
 
         MoneyManager.Instance.SetMoney(data.money);
 
+        roomLevels.Clear();
+
+        if (data.roomLevelIds != null &&
+            data.roomLevels != null)
+        {
+            for (int i = 0; i < Mathf.Min(data.roomLevelIds.Count, data.roomLevels.Count); i++)
+            {
+                roomLevels[data.roomLevelIds[i]] = data.roomLevels[i];
+            }
+        }
+
         Debug.Log("Game Loaded");
+
+        foreach (string roomId in unlockedRooms)
+        {
+            if (!roomLevels.ContainsKey(roomId))
+            {
+                roomLevels.Add(roomId, 1);
+            }
+        }
     }
 
     // =========================
@@ -161,7 +198,9 @@ public class RoomManager : MonoBehaviour
         {
             if (occupiedRooms.Contains(room.roomId))
             {
-                totalIncome += room.incomePerCycle;
+                int level = GetRoomLevel(room.roomId);
+
+                totalIncome += room.incomePerCycle * level;
             }
         }
 
@@ -197,6 +236,51 @@ public class RoomManager : MonoBehaviour
         return occupiedRooms.Contains(roomId);
     }
 
+    public int GetRoomLevel(string roomId)
+    {
+        if (roomLevels.ContainsKey(roomId))
+            return roomLevels[roomId];
+
+        return 1;
+    }
+
+    public bool UpgradeRoom(string roomId)
+    {
+        Debug.Log("UpgradeRoom dipanggil: " + roomId);
+
+        if (!unlockedRooms.Contains(roomId))
+        {
+            Debug.Log("Room belum dibeli");
+            return false;
+        }
+
+        int currentLevel = GetRoomLevel(roomId);
+
+        if (currentLevel >= MAX_ROOM_LEVEL)
+        {
+            Debug.Log("Room sudah max level");
+            return false;
+        }
+
+        long upgradeCost = currentLevel * 100;
+
+        if (!MoneyManager.Instance.SpendMoney(upgradeCost))
+        {
+            Debug.Log("Uang tidak cukup");
+            return false;
+        }
+
+        roomLevels[roomId] = currentLevel + 1;
+
+        SaveGame();
+
+        Debug.Log(
+            $"Upgrade {roomId} " +
+            $"Level {currentLevel} -> {currentLevel + 1}"
+        );
+
+        return true;
+    }
     public void AddTenant(string roomId)
     {
         Debug.Log("AddTenant dipanggil: " + roomId);
@@ -232,6 +316,25 @@ public class RoomManager : MonoBehaviour
         occupiedRooms.Remove(roomId);
 
         Debug.Log("Tenant keluar dari room: " + roomId);
+    }
+
+    [ContextMenu("PRINT ROOM LEVELS")]
+    private void PrintRoomLevels()
+    {
+        foreach (var pair in roomLevels)
+        {
+            Debug.Log($"{pair.Key} = Level {pair.Value}");
+        }
+    }
+
+    [ContextMenu("DEBUG UPGRADE ROOM 1")]
+    private void DebugUpgradeRoom1()
+    {
+        foreach (var room in rooms)
+        {
+            UpgradeRoom(room.roomId);
+            break;
+        }
     }
 
     [ContextMenu("DELETE SAVE")]

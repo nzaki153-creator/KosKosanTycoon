@@ -9,4 +9,8 @@ public class SaveData
     public List<string> unlockedRooms = new();
 
     public List<string> occupiedRooms = new();
+
+    public List<string> roomLevelIds = new();
+
+    public List<int> roomLevels = new();
 }
