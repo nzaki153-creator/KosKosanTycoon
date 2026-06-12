@@ -21,6 +21,11 @@ public class RoomManager : MonoBehaviour
     private Dictionary<string, int> roomLevels = new();
 
     private const int MAX_ROOM_LEVEL = 10;
+
+    private long pendingOfflineIncome = 0;
+
+    private bool isInitialized = false;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -47,6 +52,8 @@ public class RoomManager : MonoBehaviour
             );
         }
 
+        isInitialized = true;
+
         StartCoroutine(IncomeLoop());
     }
 
@@ -57,7 +64,7 @@ public class RoomManager : MonoBehaviour
 
     private void OnApplicationPause(bool pauseStatus)
     {
-        if (pauseStatus)
+        if (pauseStatus && MoneyManager.Instance != null)
         {
             SaveGame();
         }
@@ -93,24 +100,37 @@ public class RoomManager : MonoBehaviour
         StartCoroutine(TenantMoveIn(roomId));
 
         Debug.Log("ROOM DIBELI: " + room.roomName);
+
+        SaveGame();
     }
 
     public void SaveGame()
     {
         SaveData data = new SaveData();
 
-        data.money = MoneyManager.Instance.GetMoney();
+        if (MoneyManager.Instance != null)
+        {
+            data.money = MoneyManager.Instance.GetMoney();
+        }
+        else
+        {
+            data.money = 0;
+        }
         data.unlockedRooms = new List<string>(unlockedRooms);
         data.occupiedRooms = new List<string>(occupiedRooms);
 
         data.roomLevelIds = new List<string>();
         data.roomLevels = new List<int>();
 
+        if(!isInitialized) return;
+
         foreach (var pair in roomLevels)
         {
             data.roomLevelIds.Add(pair.Key);
             data.roomLevels.Add(pair.Value);
         }
+
+        data.lastSaveTime = System.DateTime.UtcNow.ToString("o");
 
         string json = JsonUtility.ToJson(data);
 
@@ -159,6 +179,57 @@ public class RoomManager : MonoBehaviour
                 roomLevels.Add(roomId, 1);
             }
         }
+
+        CalculateOfflineIncome(data.lastSaveTime);
+    }
+
+    private void CalculateOfflineIncome(string lastSaveTime)
+    {
+        if (string.IsNullOrEmpty(lastSaveTime))
+            return;
+
+        if (!System.DateTime.TryParse(lastSaveTime, null,
+            System.Globalization.DateTimeStyles.RoundtripKind,
+            out System.DateTime savedTime))
+            return;
+
+        double offlineSeconds = (System.DateTime.UtcNow - savedTime).TotalSeconds;
+
+        if (offlineSeconds < 5f)
+            return;
+
+        // cap 8 jam
+        double cappedSeconds = System.Math.Min(offlineSeconds, 28800);
+
+        long totalIncome = 0;
+
+        foreach (var room in rooms)
+        {
+            if (unlockedRooms.Contains(room.roomId))
+            {
+                int level = GetRoomLevel(room.roomId);
+                totalIncome += room.incomePerCycle * level;
+            }
+        }
+
+        // hitung cycles (pakai interval 5 detik)
+        long cycles = (long)(cappedSeconds / 5f);
+
+        pendingOfflineIncome = totalIncome * cycles;
+
+        if (pendingOfflineIncome > 0)
+        {
+            MoneyManager.Instance.AddMoney(pendingOfflineIncome);
+        }
+
+        Debug.Log("Offline Income: " + pendingOfflineIncome);
+    }
+
+    public long TakeOfflineIncome()
+    {
+        long value = pendingOfflineIncome;
+        pendingOfflineIncome = 0;
+        return value;
     }
 
     // =========================

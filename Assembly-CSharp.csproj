@@ -54,6 +54,7 @@
     <Compile Include="Assets\Scripts\UI\MoneyUI.cs" />
     <Compile Include="Assets\Scripts\Managers\RoomManager.cs" />
     <Compile Include="Assets\Scripts\UI\RoomButtonUI.cs" />
+    <Compile Include="Assets\Scripts\UI\OfflineIncomeUI.cs" />
     <Compile Include="Assets\Scripts\UI\UpgradeButtonUI.cs" />
   </ItemGroup>
   <ItemGroup>

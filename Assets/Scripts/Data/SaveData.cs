@@ -13,4 +13,6 @@ public class SaveData
     public List<string> roomLevelIds = new();
 
     public List<int> roomLevels = new();
+
+    public string lastSaveTime = "";
 }
