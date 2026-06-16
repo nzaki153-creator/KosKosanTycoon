@@ -24,8 +24,6 @@ public class RoomManager : MonoBehaviour
 
     private long pendingOfflineIncome = 0;
 
-    private bool isInitialized = false;
-
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -51,8 +49,6 @@ public class RoomManager : MonoBehaviour
                 $"Income: {room.incomePerCycle}"
             );
         }
-
-        isInitialized = true;
 
         StartCoroutine(IncomeLoop());
     }
@@ -121,8 +117,6 @@ public class RoomManager : MonoBehaviour
 
         data.roomLevelIds = new List<string>();
         data.roomLevels = new List<int>();
-
-        if(!isInitialized) return;
 
         foreach (var pair in roomLevels)
         {
@@ -280,7 +274,7 @@ public class RoomManager : MonoBehaviour
             MoneyManager.Instance.AddMoney(totalIncome);
         }
 
-        Debug.Log("Income + " + totalIncome);
+        //Debug.Log("Income + " + totalIncome);
     }
 
     // =========================
@@ -313,6 +307,40 @@ public class RoomManager : MonoBehaviour
             return roomLevels[roomId];
 
         return 1;
+    }
+
+    public long GetRoomIncome(string roomId)
+    {
+        RoomData room = GetRoom(roomId);
+
+        if (room == null)
+            return 0;
+
+        int level = GetRoomLevel(roomId);
+
+        return room.incomePerCycle * level;
+    }
+
+    public int GetOccupiedRoomCount()
+    {
+        return occupiedRooms.Count;
+    }
+
+    public int GetTotalRoomCount()
+    {
+        return rooms.Count;
+    }
+
+    public long GetTotalIncome()
+    {
+        long total = 0;
+
+        foreach (string roomId in occupiedRooms)
+        {
+            total += GetRoomIncome(roomId);
+        }
+
+        return total;
     }
 
     public bool UpgradeRoom(string roomId)
